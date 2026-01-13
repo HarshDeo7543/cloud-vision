@@ -193,16 +193,17 @@ body {
   position: absolute;
   top: 0;
   left: -100%;
-  width: 100%;
+  width: 60%;
   height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-  animation: shimmer 3s ease-in-out infinite;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.15), transparent);
+  animation: shimmer 4s ease-in-out infinite;
+  animation-delay: 1s;
   border-radius: 100px;
 }
 
 .hero-badge:hover {
-  transform: scale(1.08) translateY(-2px);
-  box-shadow: 0 0 50px rgba(139, 92, 246, 0.8), 0 0 100px rgba(139, 92, 246, 0.5);
+  transform: scale(1.05) translateY(-1px);
+  box-shadow: 0 0 35px rgba(139, 92, 246, 0.6), 0 0 70px rgba(139, 92, 246, 0.3);
   text-decoration: none;
 }
 
@@ -232,7 +233,7 @@ body {
   top: 100%;
   left: 50%;
   transform: translateX(-50%);
-  border: 8px solid transparent;
+  border: 6px solid transparent;
   border-top-color: #00a0dc;
 }
 
@@ -246,22 +247,33 @@ body {
 
   0%,
   100% {
-    box-shadow: 0 0 20px rgba(139, 92, 246, 0.5), 0 0 40px rgba(139, 92, 246, 0.3);
+    box-shadow: 0 0 15px rgba(139, 92, 246, 0.4), 0 0 30px rgba(139, 92, 246, 0.2);
   }
 
   50% {
-    box-shadow: 0 0 30px rgba(139, 92, 246, 0.7), 0 0 60px rgba(139, 92, 246, 0.4);
+    box-shadow: 0 0 25px rgba(139, 92, 246, 0.5), 0 0 45px rgba(139, 92, 246, 0.25);
   }
 }
 
 @keyframes shimmer {
   0% {
-    left: -100%;
+    left: -60%;
+    opacity: 0;
   }
 
-  50%,
+  10% {
+    opacity: 1;
+  }
+
+  50% {
+    left: 100%;
+    opacity: 1;
+  }
+
+  60%,
   100% {
     left: 100%;
+    opacity: 0;
   }
 }
 
@@ -947,6 +959,49 @@ body {
   justify-content: flex-end;
   padding: 1rem 1.5rem;
   border-top: 1px solid var(--border);
+}
+
+/* PIN Modal Styles */
+.pin-modal {
+  max-width: 360px;
+}
+
+.pin-input-container {
+  display: flex;
+  justify-content: center;
+  padding: 1.5rem 0;
+}
+
+.pin-input {
+  width: 140px;
+  padding: 1rem;
+  font-size: 2rem;
+  font-family: 'JetBrains Mono', monospace;
+  text-align: center;
+  letter-spacing: 0.5rem;
+  background: var(--bg-3);
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  color: var(--text);
+  transition: 0.2s;
+}
+
+.pin-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 20px rgba(139, 92, 246, 0.3);
+}
+
+.pin-input::placeholder {
+  color: var(--text-3);
+  letter-spacing: 0.3rem;
+}
+
+.pin-hint {
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--text-3);
+  margin-top: 0.5rem;
 }
 
 .btn-ghost {

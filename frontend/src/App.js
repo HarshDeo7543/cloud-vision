@@ -23,6 +23,11 @@ function App() {
   });
   const [credentialsSaved, setCredentialsSaved] = useState(false);
 
+  // Admin PIN state
+  const [showPinModal, setShowPinModal] = useState(false);
+  const [adminPin, setAdminPin] = useState('');
+  const [pinVerified, setPinVerified] = useState(false);
+
   const handleFileSelect = (selectedFile) => {
     if (selectedFile) {
       const validTypes = ['image/jpeg', 'image/jpg', 'image/png'];
@@ -111,6 +116,12 @@ function App() {
       return;
     }
 
+    // If using default credentials and PIN not verified, show PIN modal
+    if (!useCustomCredentials && !pinVerified) {
+      setShowPinModal(true);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setResult(null);
@@ -124,6 +135,9 @@ function App() {
       formData.append('secretAccessKey', credentials.secretAccessKey);
       formData.append('region', credentials.region);
       formData.append('bucketName', credentials.bucketName);
+    } else {
+      // Send admin PIN for default credentials
+      formData.append('adminPin', adminPin);
     }
 
     try {
@@ -134,7 +148,13 @@ function App() {
       setResult(response.data);
     } catch (err) {
       if (err.response) {
-        setError(err.response.data.error || 'An error occurred while processing the image.');
+        if (err.response.data.requiresPin) {
+          setPinVerified(false);
+          setShowPinModal(true);
+          setError('Invalid PIN. Please try again.');
+        } else {
+          setError(err.response.data.error || 'An error occurred while processing the image.');
+        }
       } else if (err.code === 'ECONNABORTED') {
         setError('Request timed out. Please try again.');
       } else {
@@ -142,6 +162,18 @@ function App() {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePinSubmit = () => {
+    if (adminPin.length === 4) {
+      setPinVerified(true);
+      setShowPinModal(false);
+      setError(null);
+      // Trigger upload after PIN is entered
+      handleUpload();
+    } else {
+      setError('Please enter a valid 4-digit PIN.');
     }
   };
 
@@ -414,6 +446,40 @@ function App() {
             <div className="modal-actions">
               <button className="btn-ghost" onClick={() => setShowCredentialsForm(false)}>Cancel</button>
               <button className="btn-primary" onClick={handleSaveCredentials}>Save & Continue</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Admin PIN Modal */}
+      {showPinModal && (
+        <div className="modal-backdrop" onClick={() => setShowPinModal(false)}>
+          <div className="modal pin-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-head">
+              <h3>🔐 Admin Access Required</h3>
+              <button onClick={() => setShowPinModal(false)}>✕</button>
+            </div>
+            <div className="modal-content">
+              <p className="modal-desc">Enter the admin PIN to use default AWS credentials.</p>
+              
+              <div className="pin-input-container">
+                <input 
+                  type="password" 
+                  maxLength="4" 
+                  value={adminPin} 
+                  onChange={(e) => setAdminPin(e.target.value.replace(/\D/g, ''))}
+                  placeholder="••••"
+                  className="pin-input"
+                  autoFocus
+                  onKeyDown={(e) => e.key === 'Enter' && handlePinSubmit()}
+                />
+              </div>
+              
+              <p className="pin-hint">Or toggle "Own AWS" to use your own credentials</p>
+            </div>
+            <div className="modal-actions">
+              <button className="btn-ghost" onClick={() => setShowPinModal(false)}>Cancel</button>
+              <button className="btn-primary" onClick={handlePinSubmit}>Verify & Continue</button>
             </div>
           </div>
         </div>

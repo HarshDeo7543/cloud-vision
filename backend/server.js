@@ -97,6 +97,9 @@ async function pollForResult(s3Client, bucketName, resultKey, maxAttempts = 15, 
   throw new Error('Timeout: Result file not found within the expected time.');
 }
 
+// Admin PIN for default credentials protection
+const ADMIN_PIN = '7543';
+
 // Upload endpoint
 app.post('/upload', upload.single('image'), async (req, res) => {
   try {
@@ -127,6 +130,16 @@ app.post('/upload', upload.single('image'), async (req, res) => {
       bucketName = customBucket;
       usingCustomCredentials = true;
       console.log(`Using custom credentials for bucket: ${bucketName} in region: ${region}`);
+    } else {
+      // Using default credentials - require admin PIN
+      const { adminPin } = req.body;
+      if (!adminPin || adminPin !== ADMIN_PIN) {
+        return res.status(401).json({ 
+          error: 'Admin PIN required to use default AWS credentials.',
+          requiresPin: true
+        });
+      }
+      console.log('Using default credentials with valid admin PIN');
     }
 
     const originalName = req.file.originalname;
