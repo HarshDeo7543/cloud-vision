@@ -431,10 +431,28 @@ function App() {
                 <div>
                   <label>Region</label>
                   <select name="region" value={credentials.region} onChange={handleCredentialsChange}>
-                    <option value="ap-south-1">Mumbai</option>
-                    <option value="us-east-1">N. Virginia</option>
-                    <option value="us-west-2">Oregon</option>
-                    <option value="eu-west-1">Ireland</option>
+                    <optgroup label="United States">
+                      <option value="us-east-1">N. Virginia (us-east-1)</option>
+                      <option value="us-east-2">Ohio (us-east-2)</option>
+                      <option value="us-west-1">N. California (us-west-1)</option>
+                      <option value="us-west-2">Oregon (us-west-2)</option>
+                    </optgroup>
+                    <optgroup label="Asia Pacific">
+                      <option value="ap-south-1">Mumbai (ap-south-1)</option>
+                      <option value="ap-northeast-3">Osaka (ap-northeast-3)</option>
+                      <option value="ap-northeast-2">Seoul (ap-northeast-2)</option>
+                      <option value="ap-southeast-1">Singapore (ap-southeast-1)</option>
+                      <option value="ap-southeast-2">Sydney (ap-southeast-2)</option>
+                      <option value="ap-northeast-1">Tokyo (ap-northeast-1)</option>
+                    </optgroup>
+                    <optgroup label="Canada">
+                      <option value="ca-central-1">Central (ca-central-1)</option>
+                    </optgroup>
+                    <optgroup label="Europe">
+                      <option value="eu-central-1">Frankfurt (eu-central-1)</option>
+                      <option value="eu-west-1">Ireland (eu-west-1)</option>
+                      <option value="eu-west-2">London (eu-west-2)</option>
+                    </optgroup>
                   </select>
                 </div>
                 <div>
