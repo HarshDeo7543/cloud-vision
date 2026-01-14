@@ -145,9 +145,10 @@ app.post('/upload', upload.single('image'), async (req, res) => {
     const originalName = req.file.originalname;
     const s3Key = originalName;  // Upload directly to bucket root
     
-    // Lambda creates result as: filename.result.json (without original extension)
+    // Lambda creates results as: filename.result.json and filename.moderation.json
     const nameWithoutExt = originalName.substring(0, originalName.lastIndexOf('.'));
     const resultKey = `${nameWithoutExt}.result.json`;
+    const moderationKey = `${nameWithoutExt}.moderation.json`;
 
     console.log(`Uploading file: ${originalName} to S3 key: ${s3Key}`);
 
@@ -159,12 +160,20 @@ app.post('/upload', upload.single('image'), async (req, res) => {
       ContentType: req.file.mimetype,
     }));
 
-    console.log('File uploaded successfully. Waiting for Rekognition result...');
+    console.log('File uploaded successfully. Waiting for Rekognition results...');
 
-    // Poll for result
-    const result = await pollForResult(s3Client, bucketName, resultKey);
+    // Poll for face detection result
+    const faceResult = await pollForResult(s3Client, bucketName, resultKey);
+    console.log('Face detection result received.');
 
-    console.log('Result received successfully.');
+    // Try to get moderation result (may not exist for all images)
+    let moderationResult = null;
+    try {
+      moderationResult = await pollForResult(s3Client, bucketName, moderationKey, 10, 500);
+      console.log('Moderation result received.');
+    } catch (err) {
+      console.log('No moderation result found (this is normal for non-explicit images).');
+    }
 
     // Destroy custom client if created
     if (usingCustomCredentials) {
@@ -174,7 +183,8 @@ app.post('/upload', upload.single('image'), async (req, res) => {
     res.json({
       success: true,
       filename: originalName,
-      result: result,
+      result: faceResult,
+      moderation: moderationResult,
     });
 
   } catch (error) {

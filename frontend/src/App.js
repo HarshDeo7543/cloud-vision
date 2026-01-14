@@ -591,22 +591,134 @@ function App() {
           <div className="results">
             <div className="result-header">
               <button className="back-btn" onClick={removeFile}>← New Analysis</button>
-              <span className="face-count">{getFacesCount()} face{getFacesCount() !== 1 ? 's' : ''} detected</span>
+              <div className="header-badges">
+                {/* Show analysis type based on what was detected */}
+                {result.moderation?.ModerationLabels?.length > 0 ? (
+                  <span className="moderation-badge warning">🔞 Content Moderation</span>
+                ) : (
+                  <span className="face-count">👤 Face Detection • {getFacesCount()} face{getFacesCount() !== 1 ? 's' : ''}</span>
+                )}
+              </div>
             </div>
 
             <div className="result-grid">
               <div className="result-image">
                 <img src={preview} alt="Analyzed" />
+                {result.moderation?.Summary?.ExplicitContentDetected && (
+                  <div className="moderation-overlay">
+                    <span>⚠️ Explicit Content Detected</span>
+                  </div>
+                )}
               </div>
+
               <div className="result-cards">
-                {getFacesCount() === 0 ? (
-                  <div className="no-face">
-                    <span>🤷</span>
-                    <h3>No faces found</h3>
-                    <p>Try a clearer photo with visible faces</p>
+                {/* CONDITIONAL: Show ONLY Moderation OR Face Detection */}
+                {result.moderation?.ModerationLabels?.length > 0 ? (
+                  /* ========== MODERATION RESULTS ========== */
+                  <div className="moderation-card">
+                    <div className="moderation-header">
+                      <span className="mod-icon">🔞</span>
+                      <div>
+                        <h3>Content Moderation Analysis</h3>
+                        <p className="mod-subtitle">{result.moderation.ModerationLabels.length} labels detected</p>
+                      </div>
+                      {result.moderation.Summary?.ExplicitContentDetected && (
+                        <span className="explicit-tag">EXPLICIT</span>
+                      )}
+                    </div>
+
+                    {/* Risk Level */}
+                    <div className="risk-section">
+                      <span className="risk-label">Risk Level</span>
+                      <div className="risk-meter">
+                        {(() => {
+                          const maxConf = Math.max(...result.moderation.ModerationLabels.map(l => l.Confidence));
+                          const riskLevel = maxConf > 90 ? 'High' : maxConf > 70 ? 'Medium' : 'Low';
+                          const riskColor = maxConf > 90 ? '#ef4444' : maxConf > 70 ? '#f59e0b' : '#10b981';
+                          return (
+                            <>
+                              <div className="risk-bar" style={{ width: `${maxConf}%`, background: riskColor }} />
+                              <span className="risk-text" style={{ color: riskColor }}>{riskLevel} ({maxConf.toFixed(0)}%)</span>
+                            </>
+                          );
+                        })()}
+                      </div>
+                    </div>
+
+                    {/* Categories */}
+                    <div className="mod-categories">
+                      <h4>Detected Categories</h4>
+                      <div className="category-list">
+                        {result.moderation.ModerationLabels
+                          .filter(l => l.TaxonomyLevel === 1 || l.TaxonomyLevel === 2)
+                          .map((label, idx) => (
+                            <div key={idx} className="category-item">
+                              <span className="cat-name">{label.Name}</span>
+                              <ConfidenceBar value={label.Confidence} />
+                            </div>
+                          ))
+                        }
+                      </div>
+                    </div>
+
+                    {/* Detailed Labels */}
+                    {result.moderation.ModerationLabels.filter(l => l.TaxonomyLevel === 3).length > 0 && (
+                      <div className="mod-details">
+                        <h4>Specific Detections</h4>
+                        <div className="label-tags">
+                          {result.moderation.ModerationLabels
+                            .filter(l => l.TaxonomyLevel === 3)
+                            .map((label, idx) => (
+                              <span key={idx} className="label-tag" title={`Confidence: ${label.Confidence.toFixed(1)}%`}>
+                                {label.Name}
+                                <span className="tag-conf">{label.Confidence.toFixed(0)}%</span>
+                              </span>
+                            ))
+                          }
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Category Hierarchy */}
+                    {result.moderation.ModerationLabels.some(l => l.ParentName) && (
+                      <div className="mod-hierarchy">
+                        <h4>Category Hierarchy</h4>
+                        <div className="hierarchy-tree">
+                          {[...new Set(result.moderation.ModerationLabels
+                            .filter(l => l.TaxonomyLevel === 1)
+                            .map(l => l.Name))]
+                            .map((parent, idx) => (
+                              <div key={idx} className="hierarchy-branch">
+                                <span className="parent-cat">📁 {parent}</span>
+                                <div className="child-cats">
+                                  {result.moderation.ModerationLabels
+                                    .filter(l => l.ParentName === parent || 
+                                      result.moderation.ModerationLabels.some(p => p.Name === l.ParentName && p.ParentName === parent))
+                                    .map((child, cidx) => (
+                                      <span key={cidx} className="child-cat">└ {child.Name}</span>
+                                    ))
+                                  }
+                                </div>
+                              </div>
+                            ))
+                          }
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ) : (
-                  result.result?.FaceDetails?.map((face, idx) => renderFaceCard(face, idx))
+                  /* ========== FACE DETECTION RESULTS ========== */
+                  <>
+                    {getFacesCount() === 0 ? (
+                      <div className="no-face">
+                        <span>🤷</span>
+                        <h3>No faces found</h3>
+                        <p>Try a clearer photo with visible faces</p>
+                      </div>
+                    ) : (
+                      result.result?.FaceDetails?.map((face, idx) => renderFaceCard(face, idx))
+                    )}
+                  </>
                 )}
               </div>
             </div>

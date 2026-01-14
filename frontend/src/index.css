@@ -802,6 +802,371 @@ body {
   font-weight: 600;
 }
 
+/* ========== CONTENT MODERATION ========== */
+
+/* Header Badges */
+.header-badges {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.moderation-badge {
+  padding: 0.4rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.moderation-badge.warning {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  animation: pulse-warning 2s ease-in-out infinite;
+}
+
+@keyframes pulse-warning {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.7;
+  }
+}
+
+/* Result Left Column */
+.result-left {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Image Info Card */
+.image-info-card {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1rem;
+}
+
+.image-info-card h4 {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  color: var(--text);
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.info-label {
+  font-size: 0.65rem;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.info-value {
+  font-size: 0.8rem;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.analysis-stats {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
+.stat-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.65rem;
+  background: var(--bg-3);
+  border-radius: 20px;
+  font-size: 0.7rem;
+  color: var(--text-2);
+}
+
+.stat-pill.warning {
+  background: rgba(239, 68, 68, 0.15);
+  color: #fca5a5;
+}
+
+.pill-icon {
+  font-size: 0.75rem;
+}
+
+/* Moderation Summary Grid */
+.mod-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.mod-stat {
+  text-align: center;
+  padding: 0.75rem;
+  background: var(--bg-3);
+  border-radius: 10px;
+}
+
+.mod-stat-value {
+  display: block;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.mod-stat-label {
+  font-size: 0.65rem;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* Image Overlay */
+.moderation-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 1rem;
+  background: linear-gradient(transparent, rgba(239, 68, 68, 0.9));
+  color: white;
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.result-image {
+  position: relative;
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+}
+
+/* Moderation Card */
+.moderation-card {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 16px;
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.moderation-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.mod-icon {
+  font-size: 2rem;
+}
+
+.moderation-header h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.mod-subtitle {
+  font-size: 0.75rem;
+  color: var(--text-3);
+  margin: 0;
+}
+
+.explicit-tag {
+  margin-left: auto;
+  padding: 0.35rem 0.75rem;
+  background: #ef4444;
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 700;
+  border-radius: 6px;
+  letter-spacing: 0.05em;
+}
+
+/* Risk Section */
+.risk-section {
+  margin-bottom: 1.25rem;
+  padding: 0.75rem;
+  background: var(--bg-3);
+  border-radius: 10px;
+}
+
+.risk-label {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.5rem;
+}
+
+.risk-meter {
+  position: relative;
+  height: 8px;
+  background: var(--bg);
+  border-radius: 8px;
+  overflow: visible;
+}
+
+.risk-bar {
+  height: 100%;
+  border-radius: 8px;
+  transition: width 0.5s ease;
+}
+
+.risk-text {
+  position: absolute;
+  right: 0;
+  top: -22px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Categories */
+.mod-categories,
+.mod-details,
+.mod-hierarchy {
+  margin-bottom: 1rem;
+}
+
+.mod-categories h4,
+.mod-details h4,
+.mod-hierarchy h4 {
+  font-size: 0.7rem;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.75rem;
+}
+
+.category-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.category-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.cat-name {
+  min-width: 120px;
+  font-size: 0.8rem;
+  color: var(--text);
+}
+
+/* Label Tags */
+.label-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.label-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.75rem;
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 8px;
+  font-size: 0.75rem;
+  color: #fca5a5;
+}
+
+.tag-conf {
+  font-size: 0.65rem;
+  color: var(--text-3);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Hierarchy */
+.hierarchy-tree {
+  padding-left: 0.5rem;
+}
+
+.hierarchy-branch {
+  margin-bottom: 0.75rem;
+}
+
+.parent-cat {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 0.35rem;
+}
+
+.child-cats {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding-left: 1.25rem;
+}
+
+.child-cat {
+  font-size: 0.75rem;
+  color: var(--text-2);
+}
+
+/* Safe Content */
+.safe-content-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: 12px;
+  margin-bottom: 1rem;
+}
+
+.safe-icon {
+  font-size: 1.5rem;
+}
+
+.safe-content-card h3 {
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin: 0 0 0.15rem 0;
+  color: var(--success);
+}
+
+.safe-content-card p {
+  font-size: 0.75rem;
+  color: var(--text-3);
+  margin: 0;
+}
+
 /* No Face */
 .no-face {
   text-align: center;
