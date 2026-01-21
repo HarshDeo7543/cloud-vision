@@ -201,14 +201,6 @@ function App() {
     </div>
   );
 
-  const getEmoji = (type) => {
-    const map = {
-      'HAPPY': '😊', 'SAD': '😢', 'ANGRY': '😠', 'CONFUSED': '😕',
-      'DISGUSTED': '🤢', 'SURPRISED': '😲', 'CALM': '😌', 'FEAR': '😨',
-    };
-    return map[type] || '😐';
-  };
-
   const renderFaceCard = (face, idx) => {
     // Get all emotions sorted, show top 4
     const allEmotions = face.Emotions?.sort((a, b) => b.Confidence - a.Confidence).slice(0, 4) || [];
@@ -221,7 +213,7 @@ function App() {
       let direction = [];
       if (Math.abs(Yaw) > 15) direction.push(Yaw > 0 ? 'Right' : 'Left');
       if (Math.abs(Pitch) > 10) direction.push(Pitch > 0 ? 'Up' : 'Down');
-      if (direction.length === 0) return 'Straight';
+      if (direction.length === 0) return 'Facing forward';
       return `Tilted ${direction.join(' & ')}`;
     };
 
@@ -229,19 +221,19 @@ function App() {
     const getEyeDirection = () => {
       if (!face.EyeDirection) return null;
       const { Yaw, Pitch } = face.EyeDirection;
-      if (Math.abs(Yaw) < 5 && Math.abs(Pitch) < 5) return 'Looking at camera';
+      if (Math.abs(Yaw) < 5 && Math.abs(Pitch) < 5) return 'Direct';
       let dir = [];
       if (Math.abs(Yaw) > 5) dir.push(Yaw > 0 ? 'right' : 'left');
       if (Math.abs(Pitch) > 5) dir.push(Pitch > 0 ? 'up' : 'down');
-      return `Looking ${dir.join(' & ')}`;
+      return dir.join(' & ');
     };
 
     // Quality assessment
     const getQualityScore = () => {
       if (!face.Quality) return null;
       const avg = (face.Quality.Brightness + face.Quality.Sharpness) / 2;
-      if (avg > 70) return { label: 'Excellent', color: '#10b981' };
-      if (avg > 50) return { label: 'Good', color: '#8b5cf6' };
+      if (avg > 70) return { label: 'Excellent', color: '#22c55e' };
+      if (avg > 50) return { label: 'Good', color: '#9061f9' };
       return { label: 'Fair', color: '#f59e0b' };
     };
 
@@ -255,11 +247,10 @@ function App() {
         <div className="face-grid">
           {/* Demographics */}
           <div className="stat-block">
-            <div className="stat-icon">👤</div>
             <div className="stat-content">
               <span className="stat-label">Demographics</span>
               <span className="stat-value">
-                {face.Gender?.Value}, {face.AgeRange?.Low}-{face.AgeRange?.High} yrs
+                {face.Gender?.Value}, {face.AgeRange?.Low}–{face.AgeRange?.High} yrs
               </span>
             </div>
           </div>
@@ -267,27 +258,24 @@ function App() {
           {/* Primary Emotion */}
           {topEmotion && (
             <div className="stat-block">
-              <div className="stat-icon">{getEmoji(topEmotion.Type)}</div>
               <div className="stat-content">
-                <span className="stat-label">Dominant Mood</span>
-                <span className="stat-value">{topEmotion.Type.toLowerCase()} ({topEmotion.Confidence.toFixed(0)}%)</span>
+                <span className="stat-label">Dominant Expression</span>
+                <span className="stat-value">{topEmotion.Type.toLowerCase()} · {topEmotion.Confidence.toFixed(0)}%</span>
               </div>
             </div>
           )}
 
           {/* Expression */}
           <div className="stat-block">
-            <div className="stat-icon">{face.Smile?.Value ? '😄' : '😐'}</div>
             <div className="stat-content">
-              <span className="stat-label">Expression</span>
-              <span className="stat-value">{face.Smile?.Value ? 'Smiling' : 'Neutral'}</span>
+              <span className="stat-label">Smile</span>
+              <span className="stat-value">{face.Smile?.Value ? 'Detected' : 'Not detected'}</span>
             </div>
           </div>
 
           {/* Head Pose */}
           {getHeadPose() && (
             <div className="stat-block">
-              <div className="stat-icon">🎯</div>
               <div className="stat-content">
                 <span className="stat-label">Head Position</span>
                 <span className="stat-value">{getHeadPose()}</span>
@@ -299,12 +287,12 @@ function App() {
         {/* Emotion Breakdown */}
         {allEmotions.length > 0 && (
           <div className="emotions-section">
-            <h4>Emotion Breakdown</h4>
+            <h4>Expression Analysis</h4>
             <div className="emotions-bars">
               {allEmotions.map((em, i) => (
                 <div key={i} className="emotion-row">
-                  <span className="em-label">{getEmoji(em.Type)} {em.Type.toLowerCase()}</span>
-                  <ConfidenceBar value={em.Confidence} />
+                  <span className="em-label">{em.Type.toLowerCase()}</span>
+                  <ConfidenceBar value={em.Confidence} delay={i * 80} />
                 </div>
               ))}
             </div>
@@ -313,12 +301,11 @@ function App() {
 
         {/* Advanced Insights */}
         <div className="insights-section">
-          <h4>Advanced Insights</h4>
+          <h4>Additional Details</h4>
           <div className="insights-grid">
             {/* Eye Direction */}
             {getEyeDirection() && (
               <div className="insight-item">
-                <span className="insight-icon">👁️</span>
                 <div>
                   <span className="insight-label">Gaze</span>
                   <span className="insight-value">{getEyeDirection()}</span>
@@ -328,16 +315,14 @@ function App() {
 
             {/* Face Visibility */}
             <div className="insight-item">
-              <span className="insight-icon">{face.FaceOccluded?.Value ? '🙈' : '✓'}</span>
               <div>
                 <span className="insight-label">Visibility</span>
-                <span className="insight-value">{face.FaceOccluded?.Value ? 'Partially hidden' : 'Fully visible'}</span>
+                <span className="insight-value">{face.FaceOccluded?.Value ? 'Partial' : 'Full'}</span>
               </div>
             </div>
 
             {/* Eyes Status */}
             <div className="insight-item">
-              <span className="insight-icon">{face.EyesOpen?.Value ? '👀' : '😑'}</span>
               <div>
                 <span className="insight-label">Eyes</span>
                 <span className="insight-value">{face.EyesOpen?.Value ? 'Open' : 'Closed'}</span>
@@ -346,7 +331,6 @@ function App() {
 
             {/* Mouth Status */}
             <div className="insight-item">
-              <span className="insight-icon">{face.MouthOpen?.Value ? '😮' : '😶'}</span>
               <div>
                 <span className="insight-label">Mouth</span>
                 <span className="insight-value">{face.MouthOpen?.Value ? 'Open' : 'Closed'}</span>
@@ -361,16 +345,16 @@ function App() {
             <h4>Image Quality</h4>
             <div className="quality-bars">
               <div className="quality-row">
-                <span>☀️ Brightness</span>
+                <span>Brightness</span>
                 <ConfidenceBar value={face.Quality.Brightness} />
               </div>
               <div className="quality-row">
-                <span>📷 Sharpness</span>
+                <span>Sharpness</span>
                 <ConfidenceBar value={face.Quality.Sharpness} />
               </div>
             </div>
             {quality && (
-              <div className="quality-badge" style={{ background: `${quality.color}20`, color: quality.color }}>
+              <div className="quality-badge" style={{ background: `${quality.color}18`, color: quality.color }}>
                 Overall: {quality.label}
               </div>
             )}
@@ -379,12 +363,12 @@ function App() {
 
         {/* Feature Tags */}
         <div className="features-row">
-          {face.Eyeglasses?.Value && <span className="tag">👓 Glasses</span>}
-          {face.Sunglasses?.Value && <span className="tag">🕶️ Sunglasses</span>}
-          {face.Beard?.Value && face.Beard.Confidence >= 70 && <span className="tag">🧔 Beard</span>}
-          {face.Mustache?.Value && face.Mustache.Confidence >= 70 && <span className="tag">👨 Mustache</span>}
-          {!face.Beard?.Value && !face.Mustache?.Value && face.Gender?.Value === 'Male' && <span className="tag active">✨ Clean shaven</span>}
-          {face.Smile?.Value && face.Smile.Confidence >= 80 && <span className="tag active">� Smiling</span>}
+          {face.Eyeglasses?.Value && <span className="tag">Glasses</span>}
+          {face.Sunglasses?.Value && <span className="tag">Sunglasses</span>}
+          {face.Beard?.Value && face.Beard.Confidence >= 70 && <span className="tag">Beard</span>}
+          {face.Mustache?.Value && face.Mustache.Confidence >= 70 && <span className="tag">Mustache</span>}
+          {!face.Beard?.Value && !face.Mustache?.Value && face.Gender?.Value === 'Male' && <span className="tag active">Clean shaven</span>}
+          {face.Smile?.Value && face.Smile.Confidence >= 80 && <span className="tag active">Smiling</span>}
         </div>
 
         {/* Confidence Footer */}
@@ -409,7 +393,7 @@ function App() {
         </div>
         <div className="nav-actions">
           <label className="cred-toggle">
-            <span>Own AWS</span>
+            <span>Use your AWS</span>
             <input type="checkbox" checked={useCustomCredentials} onChange={handleToggleCustomCredentials} />
             <span className="slider"></span>
           </label>
@@ -421,8 +405,8 @@ function App() {
         <div className="modal-backdrop" onClick={() => setShowCredentialsForm(false)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
             <div className="modal-head">
-              <h3>🔐 AWS Configuration</h3>
-              <button onClick={() => setShowCredentialsForm(false)}>✕</button>
+              <h3>AWS Configuration</h3>
+              <button onClick={() => setShowCredentialsForm(false)}>×</button>
             </div>
             <div className="modal-content">
               <p className="modal-desc">Enter your AWS credentials to use your own S3 bucket and Rekognition service.</p>
@@ -480,11 +464,11 @@ function App() {
         <div className="modal-backdrop" onClick={() => setShowPinModal(false)}>
           <div className="modal pin-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-head">
-              <h3>🔐 Admin Access Required</h3>
-              <button onClick={() => setShowPinModal(false)}>✕</button>
+              <h3>Admin Access</h3>
+              <button onClick={() => setShowPinModal(false)}>×</button>
             </div>
             <div className="modal-content">
-              <p className="modal-desc">Enter the admin PIN to use default AWS credentials.</p>
+              <p className="modal-desc">Enter admin PIN to use default AWS credentials.</p>
               
               <div className="pin-input-container">
                 <input 
@@ -499,11 +483,11 @@ function App() {
                 />
               </div>
               
-              <p className="pin-hint">Or toggle "Own AWS" to use your own credentials</p>
+              <p className="pin-hint">Or toggle "Use your AWS" to provide your own credentials</p>
             </div>
             <div className="modal-actions">
               <button className="btn-ghost" onClick={() => setShowPinModal(false)}>Cancel</button>
-              <button className="btn-primary" onClick={handlePinSubmit}>Verify & Continue</button>
+              <button className="btn-primary" onClick={handlePinSubmit}>Verify</button>
             </div>
           </div>
         </div>
@@ -512,7 +496,7 @@ function App() {
       {/* Custom creds badge */}
       {useCustomCredentials && credentialsSaved && (
         <div className="cred-badge">
-          ✓ Using <strong>{credentials.bucketName}</strong>
+          Using bucket: <strong>{credentials.bucketName}</strong>
           <button onClick={() => setShowCredentialsForm(true)}>Edit</button>
         </div>
       )}
@@ -527,10 +511,9 @@ function App() {
             className="hero-badge"
           >
             Cloud Computing Club
-            <span className="badge-tooltip">✨ Follow us on LinkedIn</span>
           </a>
           <h1>Facial Analysis<br /><span>Made Simple</span></h1>
-          <p>Upload any photo and discover insights about age, emotions, and facial features — powered by advanced AI.</p>
+          <p>Upload a photo to analyze facial features, expressions, and demographics using AWS Rekognition.</p>
         </div>
 
         {/* Upload Area */}
@@ -552,8 +535,8 @@ function App() {
                       <path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
                   </div>
-                  <p className="drop-text">Drop your image here or <span>browse files</span></p>
-                  <p className="drop-hint">Supports JPG & PNG • Max 10MB</p>
+                  <p className="drop-text">Drop image here or <span>browse</span></p>
+                  <p className="drop-hint">JPG, PNG up to 10MB</p>
                 </>
               ) : (
                 <div className="preview-area">
@@ -562,7 +545,7 @@ function App() {
                     <span className="file-name">{file.name}</span>
                     <span className="file-size">{formatFileSize(file.size)}</span>
                   </div>
-                  <button className="remove-btn" onClick={(e) => { e.stopPropagation(); removeFile(); }}>✕</button>
+                  <button className="remove-btn" onClick={(e) => { e.stopPropagation(); removeFile(); }}>×</button>
                 </div>
               )}
             </div>
@@ -571,7 +554,7 @@ function App() {
               {loading ? (
                 <><span className="spinner"></span> Analyzing...</>
               ) : (
-                <>Analyze Face</>
+                <>Analyze Image</>
               )}
             </button>
           </div>
@@ -580,7 +563,7 @@ function App() {
         {/* Error */}
         {error && (
           <div className="error-box">
-            <span>⚠️</span> {error}
+            {error}
           </div>
         )}
 
@@ -588,7 +571,7 @@ function App() {
         {loading && (
           <div className="loading-box">
             <div className="loader"></div>
-            <p>Analyzing facial features...</p>
+            <p>Analyzing image...</p>
           </div>
         )}
 
@@ -596,13 +579,18 @@ function App() {
         {result && !loading && (
           <div className="results">
             <div className="result-header">
-              <button className="back-btn" onClick={removeFile}>← New Analysis</button>
+              <button className="back-btn" onClick={removeFile}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M19 12H5M12 19l-7-7 7-7"/>
+                </svg>
+                New Analysis
+              </button>
               <div className="header-badges">
                 {/* Show analysis type based on what was detected */}
                 {result.moderation?.ModerationLabels?.length > 0 ? (
-                  <span className="moderation-badge warning">🔞 Content Moderation</span>
+                  <span className="moderation-badge warning">Content Moderation</span>
                 ) : (
-                  <span className="face-count">👤 Face Detection • {getFacesCount()} face{getFacesCount() !== 1 ? 's' : ''}</span>
+                  <span className="face-count">{getFacesCount()} face{getFacesCount() !== 1 ? 's' : ''} detected</span>
                 )}
               </div>
             </div>
@@ -612,7 +600,7 @@ function App() {
                 <img src={preview} alt="Analyzed" />
                 {result.moderation?.Summary?.ExplicitContentDetected && (
                   <div className="moderation-overlay">
-                    <span>⚠️ Explicit Content Detected</span>
+                    <span>Explicit Content Detected</span>
                   </div>
                 )}
               </div>
@@ -623,9 +611,8 @@ function App() {
                   /* ========== MODERATION RESULTS ========== */
                   <div className="moderation-card">
                     <div className="moderation-header">
-                      <span className="mod-icon">🔞</span>
                       <div>
-                        <h3>Content Moderation Analysis</h3>
+                        <h3>Content Moderation</h3>
                         <p className="mod-subtitle">{result.moderation.ModerationLabels.length} labels detected</p>
                       </div>
                       {result.moderation.Summary?.ExplicitContentDetected && (
@@ -640,7 +627,7 @@ function App() {
                         {(() => {
                           const maxConf = Math.max(...result.moderation.ModerationLabels.map(l => l.Confidence));
                           const riskLevel = maxConf > 90 ? 'High' : maxConf > 70 ? 'Medium' : 'Low';
-                          const riskColor = maxConf > 90 ? '#ef4444' : maxConf > 70 ? '#f59e0b' : '#10b981';
+                          const riskColor = maxConf > 90 ? '#f43f5e' : maxConf > 70 ? '#f59e0b' : '#22c55e';
                           return (
                             <>
                               <div className="risk-bar" style={{ width: `${maxConf}%`, background: riskColor }} />
@@ -695,13 +682,13 @@ function App() {
                             .map(l => l.Name))]
                             .map((parent, idx) => (
                               <div key={idx} className="hierarchy-branch">
-                                <span className="parent-cat">📁 {parent}</span>
+                                <span className="parent-cat">{parent}</span>
                                 <div className="child-cats">
                                   {result.moderation.ModerationLabels
                                     .filter(l => l.ParentName === parent || 
                                       result.moderation.ModerationLabels.some(p => p.Name === l.ParentName && p.ParentName === parent))
                                     .map((child, cidx) => (
-                                      <span key={cidx} className="child-cat">└ {child.Name}</span>
+                                      <span key={cidx} className="child-cat">— {child.Name}</span>
                                     ))
                                   }
                                 </div>
@@ -717,7 +704,6 @@ function App() {
                   <>
                     {getFacesCount() === 0 ? (
                       <div className="no-face">
-                        <span>👀</span>
                         <h3>No faces detected</h3>
                         <p>Try uploading a clearer photo with visible faces</p>
                       </div>
@@ -734,7 +720,7 @@ function App() {
 
       {/* Footer */}
       <footer className="footer">
-        <p>Crafted with 💜 by Harsh Deo</p>
+        <p>Built by <strong>Harsh Deo</strong></p>
       </footer>
     </div>
   );
