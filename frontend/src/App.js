@@ -188,9 +188,15 @@ function App() {
     return result.result.FaceDetails.length;
   };
 
-  const ConfidenceBar = ({ value }) => (
+  const ConfidenceBar = ({ value, delay = 0 }) => (
     <div className="conf-bar">
-      <div className="conf-fill" style={{ width: `${Math.min(value, 100)}%` }} />
+      <div 
+        className="conf-fill" 
+        style={{ 
+          width: `${Math.min(value, 100)}%`,
+          transitionDelay: `${delay}ms`
+        }} 
+      />
       <span className="conf-text">{value.toFixed(0)}%</span>
     </div>
   );
@@ -524,7 +530,7 @@ function App() {
             <span className="badge-tooltip">✨ Follow us on LinkedIn</span>
           </a>
           <h1>Facial Analysis<br /><span>Made Simple</span></h1>
-          <p>Upload any photo and get instant AI-powered insights about age, emotions, and facial features.</p>
+          <p>Upload any photo and discover insights about age, emotions, and facial features — powered by advanced AI.</p>
         </div>
 
         {/* Upload Area */}
@@ -546,8 +552,8 @@ function App() {
                       <path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
                   </div>
-                  <p className="drop-text">Drag your image here or <span>browse files</span></p>
-                  <p className="drop-hint">JPG, PNG up to 10MB</p>
+                  <p className="drop-text">Drop your image here or <span>browse files</span></p>
+                  <p className="drop-hint">Supports JPG & PNG • Max 10MB</p>
                 </>
               ) : (
                 <div className="preview-area">
@@ -582,7 +588,7 @@ function App() {
         {loading && (
           <div className="loading-box">
             <div className="loader"></div>
-            <p>Processing image with AWS Rekognition...</p>
+            <p>Analyzing facial features...</p>
           </div>
         )}
 
@@ -711,9 +717,9 @@ function App() {
                   <>
                     {getFacesCount() === 0 ? (
                       <div className="no-face">
-                        <span>🤷</span>
-                        <h3>No faces found</h3>
-                        <p>Try a clearer photo with visible faces</p>
+                        <span>👀</span>
+                        <h3>No faces detected</h3>
+                        <p>Try uploading a clearer photo with visible faces</p>
                       </div>
                     ) : (
                       result.result?.FaceDetails?.map((face, idx) => renderFaceCard(face, idx))
@@ -728,7 +734,7 @@ function App() {
 
       {/* Footer */}
       <footer className="footer">
-        <p>Built with 🩵 by Harsh Deo</p>
+        <p>Crafted with 💜 by Harsh Deo</p>
       </footer>
     </div>
   );
