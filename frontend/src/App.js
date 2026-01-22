@@ -12,6 +12,8 @@ function App() {
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef(null);
 
+  const [analysisMode, setAnalysisMode] = useState('face'); // 'face' or 'moderation'
+
   // Custom credentials state
   const [useCustomCredentials, setUseCustomCredentials] = useState(false);
   const [showCredentialsForm, setShowCredentialsForm] = useState(false);
@@ -128,6 +130,7 @@ function App() {
 
     const formData = new FormData();
     formData.append('image', file);
+    formData.append('analysisMode', analysisMode);
 
     if (useCustomCredentials && credentialsSaved) {
       formData.append('useCustomCredentials', 'true');
@@ -202,14 +205,12 @@ function App() {
   );
 
   const renderFaceCard = (face, idx) => {
-    // Get all emotions sorted, show top 4
     const allEmotions = face.Emotions?.sort((a, b) => b.Confidence - a.Confidence).slice(0, 4) || [];
     const topEmotion = allEmotions[0];
     
-    // Head pose interpretation
     const getHeadPose = () => {
       if (!face.Pose) return null;
-      const { Yaw, Pitch, Roll } = face.Pose;
+      const { Yaw, Pitch } = face.Pose;
       let direction = [];
       if (Math.abs(Yaw) > 15) direction.push(Yaw > 0 ? 'Right' : 'Left');
       if (Math.abs(Pitch) > 10) direction.push(Pitch > 0 ? 'Up' : 'Down');
@@ -217,7 +218,6 @@ function App() {
       return `Tilted ${direction.join(' & ')}`;
     };
 
-    // Eye direction interpretation
     const getEyeDirection = () => {
       if (!face.EyeDirection) return null;
       const { Yaw, Pitch } = face.EyeDirection;
@@ -228,7 +228,6 @@ function App() {
       return dir.join(' & ');
     };
 
-    // Quality assessment
     const getQualityScore = () => {
       if (!face.Quality) return null;
       const avg = (face.Quality.Brightness + face.Quality.Sharpness) / 2;
@@ -243,9 +242,7 @@ function App() {
       <div key={idx} className="face-card">
         {getFacesCount() > 1 && <div className="face-num">Person {idx + 1}</div>}
         
-        {/* Primary Stats Grid */}
         <div className="face-grid">
-          {/* Demographics */}
           <div className="stat-block">
             <div className="stat-content">
               <span className="stat-label">Demographics</span>
@@ -255,7 +252,6 @@ function App() {
             </div>
           </div>
 
-          {/* Primary Emotion */}
           {topEmotion && (
             <div className="stat-block">
               <div className="stat-content">
@@ -265,7 +261,6 @@ function App() {
             </div>
           )}
 
-          {/* Expression */}
           <div className="stat-block">
             <div className="stat-content">
               <span className="stat-label">Smile</span>
@@ -273,7 +268,6 @@ function App() {
             </div>
           </div>
 
-          {/* Head Pose */}
           {getHeadPose() && (
             <div className="stat-block">
               <div className="stat-content">
@@ -284,7 +278,6 @@ function App() {
           )}
         </div>
 
-        {/* Emotion Breakdown */}
         {allEmotions.length > 0 && (
           <div className="emotions-section">
             <h4>Expression Analysis</h4>
@@ -299,11 +292,9 @@ function App() {
           </div>
         )}
 
-        {/* Advanced Insights */}
         <div className="insights-section">
           <h4>Additional Details</h4>
           <div className="insights-grid">
-            {/* Eye Direction */}
             {getEyeDirection() && (
               <div className="insight-item">
                 <div>
@@ -313,7 +304,6 @@ function App() {
               </div>
             )}
 
-            {/* Face Visibility */}
             <div className="insight-item">
               <div>
                 <span className="insight-label">Visibility</span>
@@ -321,7 +311,6 @@ function App() {
               </div>
             </div>
 
-            {/* Eyes Status */}
             <div className="insight-item">
               <div>
                 <span className="insight-label">Eyes</span>
@@ -329,7 +318,6 @@ function App() {
               </div>
             </div>
 
-            {/* Mouth Status */}
             <div className="insight-item">
               <div>
                 <span className="insight-label">Mouth</span>
@@ -339,7 +327,6 @@ function App() {
           </div>
         </div>
 
-        {/* Image Quality */}
         {face.Quality && (
           <div className="quality-section">
             <h4>Image Quality</h4>
@@ -361,7 +348,6 @@ function App() {
           </div>
         )}
 
-        {/* Feature Tags */}
         <div className="features-row">
           {face.Eyeglasses?.Value && <span className="tag">Glasses</span>}
           {face.Sunglasses?.Value && <span className="tag">Sunglasses</span>}
@@ -371,7 +357,6 @@ function App() {
           {face.Smile?.Value && face.Smile.Confidence >= 80 && <span className="tag active">Smiling</span>}
         </div>
 
-        {/* Confidence Footer */}
         <div className="confidence-footer">
           <span>Detection confidence</span>
           <span className="accuracy">{face.Confidence?.toFixed(1)}%</span>
@@ -512,9 +497,34 @@ function App() {
           >
             Cloud Computing Club
           </a>
-          <h1>Facial Analysis<br /><span>Made Simple</span></h1>
-          <p>Upload a photo to analyze facial features, expressions, and demographics using AWS Rekognition.</p>
+          <h1>Image Analysis<br /><span>Made Simple</span></h1>
+          <p>Upload a photo to analyze using AWS Rekognition. Choose between face detection or content moderation.</p>
         </div>
+
+        {/* Analysis Mode Toggle */}
+        {!result && (
+          <div className="mode-toggle-container">
+            <div className="mode-toggle">
+              <button 
+                className={`mode-btn ${analysisMode === 'face' ? 'active' : ''}`}
+                onClick={() => setAnalysisMode('face')}
+              >
+                Face Analysis
+              </button>
+              <button 
+                className={`mode-btn ${analysisMode === 'moderation' ? 'active' : ''}`}
+                onClick={() => setAnalysisMode('moderation')}
+              >
+                Content Moderation
+              </button>
+            </div>
+            <p className="mode-desc">
+              {analysisMode === 'face' 
+                ? 'Detect faces and analyze expressions, age, gender, and more.'
+                : 'Check images for explicit, violent, or inappropriate content.'}
+            </p>
+          </div>
+        )}
 
         {/* Upload Area */}
         {!result && (
@@ -554,7 +564,7 @@ function App() {
               {loading ? (
                 <><span className="spinner"></span> Analyzing...</>
               ) : (
-                <>Analyze Image</>
+                <>{analysisMode === 'face' ? 'Analyze Faces' : 'Check Content'}</>
               )}
             </button>
           </div>
@@ -571,7 +581,7 @@ function App() {
         {loading && (
           <div className="loading-box">
             <div className="loader"></div>
-            <p>Analyzing image...</p>
+            <p>{analysisMode === 'face' ? 'Detecting faces...' : 'Checking content...'}</p>
           </div>
         )}
 
@@ -586,8 +596,7 @@ function App() {
                 New Analysis
               </button>
               <div className="header-badges">
-                {/* Show analysis type based on what was detected */}
-                {result.moderation?.ModerationLabels?.length > 0 ? (
+                {result.analysisMode === 'moderation' || result.moderation?.ModerationLabels?.length > 0 ? (
                   <span className="moderation-badge warning">Content Moderation</span>
                 ) : (
                   <span className="face-count">{getFacesCount()} face{getFacesCount() !== 1 ? 's' : ''} detected</span>
@@ -606,101 +615,86 @@ function App() {
               </div>
 
               <div className="result-cards">
-                {/* CONDITIONAL: Show ONLY Moderation OR Face Detection */}
-                {result.moderation?.ModerationLabels?.length > 0 ? (
-                  /* ========== MODERATION RESULTS ========== */
+                {/* Content Moderation Results */}
+                {(result.analysisMode === 'moderation' || result.moderation?.ModerationLabels) ? (
                   <div className="moderation-card">
                     <div className="moderation-header">
                       <div>
-                        <h3>Content Moderation</h3>
-                        <p className="mod-subtitle">{result.moderation.ModerationLabels.length} labels detected</p>
+                        <h3>Content Analysis</h3>
+                        <p className="mod-subtitle">
+                          {result.moderation?.ModerationLabels?.length > 0 
+                            ? `${result.moderation.ModerationLabels.length} labels detected`
+                            : 'No issues detected'}
+                        </p>
                       </div>
-                      {result.moderation.Summary?.ExplicitContentDetected && (
+                      {result.moderation?.Summary?.ExplicitContentDetected && (
                         <span className="explicit-tag">EXPLICIT</span>
                       )}
                     </div>
 
-                    {/* Risk Level */}
-                    <div className="risk-section">
-                      <span className="risk-label">Risk Level</span>
-                      <div className="risk-meter">
-                        {(() => {
-                          const maxConf = Math.max(...result.moderation.ModerationLabels.map(l => l.Confidence));
-                          const riskLevel = maxConf > 90 ? 'High' : maxConf > 70 ? 'Medium' : 'Low';
-                          const riskColor = maxConf > 90 ? '#f43f5e' : maxConf > 70 ? '#f59e0b' : '#22c55e';
-                          return (
-                            <>
-                              <div className="risk-bar" style={{ width: `${maxConf}%`, background: riskColor }} />
-                              <span className="risk-text" style={{ color: riskColor }}>{riskLevel} ({maxConf.toFixed(0)}%)</span>
-                            </>
-                          );
-                        })()}
-                      </div>
-                    </div>
-
-                    {/* Categories */}
-                    <div className="mod-categories">
-                      <h4>Detected Categories</h4>
-                      <div className="category-list">
-                        {result.moderation.ModerationLabels
-                          .filter(l => l.TaxonomyLevel === 1 || l.TaxonomyLevel === 2)
-                          .map((label, idx) => (
-                            <div key={idx} className="category-item">
-                              <span className="cat-name">{label.Name}</span>
-                              <ConfidenceBar value={label.Confidence} />
-                            </div>
-                          ))
-                        }
-                      </div>
-                    </div>
-
-                    {/* Detailed Labels */}
-                    {result.moderation.ModerationLabels.filter(l => l.TaxonomyLevel === 3).length > 0 && (
-                      <div className="mod-details">
-                        <h4>Specific Detections</h4>
-                        <div className="label-tags">
-                          {result.moderation.ModerationLabels
-                            .filter(l => l.TaxonomyLevel === 3)
-                            .map((label, idx) => (
-                              <span key={idx} className="label-tag" title={`Confidence: ${label.Confidence.toFixed(1)}%`}>
-                                {label.Name}
-                                <span className="tag-conf">{label.Confidence.toFixed(0)}%</span>
-                              </span>
-                            ))
-                          }
+                    {result.moderation?.ModerationLabels?.length > 0 ? (
+                      <>
+                        <div className="risk-section">
+                          <span className="risk-label">Risk Level</span>
+                          <div className="risk-meter">
+                            {(() => {
+                              const maxConf = Math.max(...result.moderation.ModerationLabels.map(l => l.Confidence));
+                              const riskLevel = maxConf > 90 ? 'High' : maxConf > 70 ? 'Medium' : 'Low';
+                              const riskColor = maxConf > 90 ? '#f43f5e' : maxConf > 70 ? '#f59e0b' : '#22c55e';
+                              return (
+                                <>
+                                  <div className="risk-bar" style={{ width: `${maxConf}%`, background: riskColor }} />
+                                  <span className="risk-text" style={{ color: riskColor }}>{riskLevel} ({maxConf.toFixed(0)}%)</span>
+                                </>
+                              );
+                            })()}
+                          </div>
                         </div>
-                      </div>
-                    )}
 
-                    {/* Category Hierarchy */}
-                    {result.moderation.ModerationLabels.some(l => l.ParentName) && (
-                      <div className="mod-hierarchy">
-                        <h4>Category Hierarchy</h4>
-                        <div className="hierarchy-tree">
-                          {[...new Set(result.moderation.ModerationLabels
-                            .filter(l => l.TaxonomyLevel === 1)
-                            .map(l => l.Name))]
-                            .map((parent, idx) => (
-                              <div key={idx} className="hierarchy-branch">
-                                <span className="parent-cat">{parent}</span>
-                                <div className="child-cats">
-                                  {result.moderation.ModerationLabels
-                                    .filter(l => l.ParentName === parent || 
-                                      result.moderation.ModerationLabels.some(p => p.Name === l.ParentName && p.ParentName === parent))
-                                    .map((child, cidx) => (
-                                      <span key={cidx} className="child-cat">— {child.Name}</span>
-                                    ))
-                                  }
+                        <div className="mod-categories">
+                          <h4>Detected Categories</h4>
+                          <div className="category-list">
+                            {result.moderation.ModerationLabels
+                              .filter(l => l.TaxonomyLevel === 1 || l.TaxonomyLevel === 2)
+                              .map((label, idx) => (
+                                <div key={idx} className="category-item">
+                                  <span className="cat-name">{label.Name}</span>
+                                  <ConfidenceBar value={label.Confidence} />
                                 </div>
-                              </div>
-                            ))
-                          }
+                              ))
+                            }
+                          </div>
+                        </div>
+
+                        {result.moderation.ModerationLabels.filter(l => l.TaxonomyLevel === 3).length > 0 && (
+                          <div className="mod-details">
+                            <h4>Specific Detections</h4>
+                            <div className="label-tags">
+                              {result.moderation.ModerationLabels
+                                .filter(l => l.TaxonomyLevel === 3)
+                                .map((label, idx) => (
+                                  <span key={idx} className="label-tag" title={`Confidence: ${label.Confidence.toFixed(1)}%`}>
+                                    {label.Name}
+                                    <span className="tag-conf">{label.Confidence.toFixed(0)}%</span>
+                                  </span>
+                                ))
+                              }
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="safe-content">
+                        <div className="safe-icon">✓</div>
+                        <div>
+                          <h4>Content appears safe</h4>
+                          <p>No explicit, violent, or inappropriate content detected.</p>
                         </div>
                       </div>
                     )}
                   </div>
                 ) : (
-                  /* ========== FACE DETECTION RESULTS ========== */
+                  /* Face Detection Results */
                   <>
                     {getFacesCount() === 0 ? (
                       <div className="no-face">

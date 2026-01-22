@@ -107,6 +107,12 @@ app.post('/upload', upload.single('image'), async (req, res) => {
       return res.status(400).json({ error: 'No image file provided.' });
     }
 
+    // Get analysis mode (default to 'face')
+    const analysisMode = req.body.analysisMode || 'face';
+    if (!['face', 'moderation'].includes(analysisMode)) {
+      return res.status(400).json({ error: 'Invalid analysis mode. Use "face" or "moderation".' });
+    }
+
     // Check if custom credentials are provided
     let s3Client = defaultS3Client;
     let bucketName = DEFAULT_BUCKET_NAME;
@@ -143,14 +149,21 @@ app.post('/upload', upload.single('image'), async (req, res) => {
     }
 
     const originalName = req.file.originalname;
-    const s3Key = originalName;  // Upload directly to bucket root
-    
-    // Lambda creates results as: filename.result.json and filename.moderation.json
     const nameWithoutExt = originalName.substring(0, originalName.lastIndexOf('.'));
-    const resultKey = `${nameWithoutExt}.result.json`;
-    const moderationKey = `${nameWithoutExt}.moderation.json`;
+    
+    // Determine folder and result key based on analysis mode
+    let s3Key, resultKey;
+    if (analysisMode === 'face') {
+      s3Key = `face_analysis/${originalName}`;
+      resultKey = `face_analysis/${nameWithoutExt}.result.json`;
+    } else {
+      s3Key = `moderation/${originalName}`;
+      resultKey = `moderation/${nameWithoutExt}.moderation.json`;
+    }
 
-    console.log(`Uploading file: ${originalName} to S3 key: ${s3Key}`);
+    console.log(`Analysis mode: ${analysisMode}`);
+    console.log(`Uploading file to: ${s3Key}`);
+    console.log(`Expecting result at: ${resultKey}`);
 
     // Upload to S3
     await s3Client.send(new PutObjectCommand({
@@ -162,30 +175,33 @@ app.post('/upload', upload.single('image'), async (req, res) => {
 
     console.log('File uploaded successfully. Waiting for Rekognition results...');
 
-    // Poll for face detection result
-    const faceResult = await pollForResult(s3Client, bucketName, resultKey);
-    console.log('Face detection result received.');
-
-    // Try to get moderation result (may not exist for all images)
-    let moderationResult = null;
-    try {
-      moderationResult = await pollForResult(s3Client, bucketName, moderationKey, 10, 500);
-      console.log('Moderation result received.');
-    } catch (err) {
-      console.log('No moderation result found (this is normal for non-explicit images).');
-    }
+    // Poll for result based on analysis mode
+    const result = await pollForResult(s3Client, bucketName, resultKey);
+    console.log(`${analysisMode === 'face' ? 'Face detection' : 'Content moderation'} result received.`);
 
     // Destroy custom client if created
     if (usingCustomCredentials) {
       s3Client.destroy();
     }
 
-    res.json({
-      success: true,
-      filename: originalName,
-      result: faceResult,
-      moderation: moderationResult,
-    });
+    // Return response based on analysis mode
+    if (analysisMode === 'face') {
+      res.json({
+        success: true,
+        filename: originalName,
+        analysisMode: 'face',
+        result: result,
+        moderation: null,
+      });
+    } else {
+      res.json({
+        success: true,
+        filename: originalName,
+        analysisMode: 'moderation',
+        result: null,
+        moderation: result,
+      });
+    }
 
   } catch (error) {
     console.error('Error:', error.message);
