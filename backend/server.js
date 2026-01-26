@@ -97,8 +97,7 @@ async function pollForResult(s3Client, bucketName, resultKey, maxAttempts = 15, 
   throw new Error('Timeout: Result file not found within the expected time.');
 }
 
-// Admin PIN for default credentials protection
-const ADMIN_PIN = '7543';
+const ADMIN_PIN = process.env.ADMIN_PIN;
 
 // Upload endpoint
 app.post('/upload', upload.single('image'), async (req, res) => {
