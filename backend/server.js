@@ -2,14 +2,53 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
+const rateLimit = require('express-rate-limit');
 const { S3Client, PutObjectCommand, GetObjectCommand, HeadObjectCommand } = require('@aws-sdk/client-s3');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Trust proxy (needed when behind Nginx/load balancer on EC2)
+app.set('trust proxy', 1);
+
 // Configure CORS
 app.use(cors());
 app.use(express.json());
+
+// Global rate limiter: generous limit to protect EC2 from abuse
+// 200 requests per 15 min per IP — high enough that a full classroom on one Wi-Fi won't hit it
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later.' },
+});
+app.use(globalLimiter);
+
+// Strict limiter for default-credential (admin PIN) uploads: 5 per 10 min per IP
+// Protects YOUR AWS account from being spammed
+const defaultCredentialLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => `default_${req.ip}`,
+  message: { error: 'Too many uploads using default credentials. Please wait or use your own AWS credentials.' },
+  skip: (req) => req.body?.useCustomCredentials === 'true',
+});
+
+// Moderate limiter for custom-credential uploads: 15 per 5 min per student (keyed by accessKeyId)
+// Each student gets their own counter — shared Wi-Fi won't cause collisions
+const customCredentialLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  max: 10, //10 requests per 5 minutes per set of credentials
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => `custom_${req.body?.accessKeyId || req.ip}`,
+  message: { error: 'Upload limit reached for your credentials. Please wait a few minutes.' },
+  skip: (req) => req.body?.useCustomCredentials !== 'true',
+});
 
 // Configure multer for memory storage
 const upload = multer({
@@ -99,8 +138,9 @@ async function pollForResult(s3Client, bucketName, resultKey, maxAttempts = 15, 
 
 const ADMIN_PIN = process.env.ADMIN_PIN;
 
-// Upload endpoint
-app.post('/upload', upload.single('image'), async (req, res) => {
+// Upload endpoint — multer runs first so multipart form fields are available in req.body.
+// Then credential-specific limiters can safely apply skip/key logic.
+app.post('/upload', upload.single('image'), defaultCredentialLimiter, customCredentialLimiter, async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No image file provided.' });
