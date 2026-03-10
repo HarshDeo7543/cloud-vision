@@ -1,8 +1,8 @@
 import React, { useState, useRef } from 'react';
 import axios from 'axios';
 
-// const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
-const API_URL = (process.env.REACT_APP_API_URL || 'http://13.50.235.92').replace(/\/$/, '');
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+// const API_URL = (process.env.REACT_APP_API_URL || 'http://13.50.235.92').replace(/\/$/, '');
 
 function App() {
   const [file, setFile] = useState(null);

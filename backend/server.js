@@ -26,29 +26,37 @@ const globalLimiter = rateLimit({
 });
 app.use(globalLimiter);
 
-// Strict limiter for default-credential (admin PIN) uploads: 5 per 10 min per IP
-// Protects YOUR AWS account from being spammed
-const defaultCredentialLimiter = rateLimit({
-  windowMs: 10 * 60 * 1000,
-  max: 5,
-  standardHeaders: true,
-  legacyHeaders: false,
-  keyGenerator: (req) => `default_${req.ip}`,
-  message: { error: 'Too many uploads using default credentials. Please wait or use your own AWS credentials.' },
-  skip: (req) => req.body?.useCustomCredentials === 'true',
-});
+// ─── In-handler rate limiter (runs after multer, so req.body is guaranteed) ───
+const uploadRateLimits = new Map(); // key -> { count, windowStart }
 
-// Moderate limiter for custom-credential uploads: 15 per 5 min per student (keyed by accessKeyId)
-// Each student gets their own counter — shared Wi-Fi won't cause collisions
-const customCredentialLimiter = rateLimit({
-  windowMs: 5 * 60 * 1000,
-  max: 10, //10 requests per 5 minutes per set of credentials
-  standardHeaders: true,
-  legacyHeaders: false,
-  keyGenerator: (req) => `custom_${req.body?.accessKeyId || req.ip}`,
-  message: { error: 'Upload limit reached for your credentials. Please wait a few minutes.' },
-  skip: (req) => req.body?.useCustomCredentials !== 'true',
-});
+function checkUploadRateLimit(key, maxRequests, windowMs) {
+  const now = Date.now();
+  const entry = uploadRateLimits.get(key);
+
+  if (!entry || (now - entry.windowStart) > windowMs) {
+    // New window
+    uploadRateLimits.set(key, { count: 1, windowStart: now });
+    return { allowed: true, remaining: maxRequests - 1 };
+  }
+
+  entry.count++;
+  if (entry.count > maxRequests) {
+    const retryAfterSec = Math.ceil((entry.windowStart + windowMs - now) / 1000);
+    return { allowed: false, remaining: 0, retryAfterSec };
+  }
+
+  return { allowed: true, remaining: maxRequests - entry.count };
+}
+
+// Clean up expired entries every 10 minutes to prevent memory leak
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of uploadRateLimits) {
+    if ((now - entry.windowStart) > 10 * 60 * 1000) {
+      uploadRateLimits.delete(key);
+    }
+  }
+}, 10 * 60 * 1000);
 
 // Configure multer for memory storage
 const upload = multer({
@@ -61,7 +69,7 @@ const upload = multer({
     if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Invalid file type. Only JPEG and PNG images are allowed.'), false);
+      cb(new Error('Invalid file type. Only JPEG, JPG and PNG images are allowed.'), false);
     }
   },
 });
@@ -138,9 +146,8 @@ async function pollForResult(s3Client, bucketName, resultKey, maxAttempts = 15, 
 
 const ADMIN_PIN = process.env.ADMIN_PIN;
 
-// Upload endpoint — multer runs first so multipart form fields are available in req.body.
-// Then credential-specific limiters can safely apply skip/key logic.
-app.post('/upload', upload.single('image'), defaultCredentialLimiter, customCredentialLimiter, async (req, res) => {
+// Upload endpoint — multer runs first, then rate limit is checked inside the handler.
+app.post('/upload', upload.single('image'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No image file provided.' });
@@ -152,13 +159,42 @@ app.post('/upload', upload.single('image'), defaultCredentialLimiter, customCred
       return res.status(400).json({ error: 'Invalid analysis mode. Use "face" or "moderation".' });
     }
 
+    // ── Rate limit check (after multer, so req.body is 100% available) ──
+    const isCustom = req.body.useCustomCredentials === 'true';
+    let rateKey, rateMax, rateWindow, rateMsg;
+
+    if (isCustom) {
+      // Per-student limit keyed by their accessKeyId (not IP — shared Wi-Fi safe)
+      rateKey = `custom_${req.body.accessKeyId || req.ip}`;
+      rateMax = 10;   // 10 uploads per 5 min per credential set
+      rateWindow = 5 * 60 * 1000;
+      rateMsg = 'Upload limit reached for your credentials. Please wait a few minutes.';
+    } else {
+      // Strict limit for default (admin) credentials keyed by IP
+      rateKey = `default_${req.ip}`;
+      rateMax = 5;    // 5 uploads per 10 min per IP
+      rateWindow = 10 * 60 * 1000;
+      rateMsg = 'Too many uploads using default credentials. Please wait or use your own AWS credentials.';
+    }
+
+    const rateCheck = checkUploadRateLimit(rateKey, rateMax, rateWindow);
+    console.log(`[Rate Limit] key=${rateKey} allowed=${rateCheck.allowed} remaining=${rateCheck.remaining}`);
+
+    if (!rateCheck.allowed) {
+      return res.status(429).json({
+        error: rateMsg,
+        retryAfterSeconds: rateCheck.retryAfterSec,
+      });
+    }
+
+    // ── Credential setup ──
     // Check if custom credentials are provided
     let s3Client = defaultS3Client;
     let bucketName = DEFAULT_BUCKET_NAME;
     let usingCustomCredentials = false;
 
     // Parse custom credentials from form data if provided
-    if (req.body.useCustomCredentials === 'true') {
+    if (isCustom) {
       const { accessKeyId, secretAccessKey, region, bucketName: customBucket } = req.body;
       
       if (!accessKeyId || !secretAccessKey || !region || !customBucket) {
