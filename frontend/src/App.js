@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import axios from 'axios';
 
 // const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
-const API_URL = (process.env.REACT_APP_API_URL || 'http://13.50.235.92' || 'http://localhost:5000').replace(/\/$/, '');
+const API_URL = (process.env.REACT_APP_API_URL || 'http://13.50.235.92').replace(/\/$/, '');
 
 function App() {
   const [file, setFile] = useState(null);
@@ -113,6 +113,13 @@ function App() {
   const handleUpload = async () => {
     if (!file) return;
 
+    // Browsers block insecure API calls from secure pages (HTTPS -> HTTP).
+    const isMixedContent = window.location.protocol === 'https:' && API_URL.startsWith('http://');
+    if (isMixedContent) {
+      setError('Blocked by browser security: your app is on HTTPS but API URL is HTTP. Use HTTPS backend URL for production.');
+      return;
+    }
+
     if (useCustomCredentials && !credentialsSaved) {
       setError('Please save your AWS credentials before uploading.');
       setShowCredentialsForm(true);
@@ -151,6 +158,7 @@ function App() {
       });
       setResult(response.data);
     } catch (err) {
+      console.error('Upload request failed:', err);
       if (err.response) {
         if (err.response.data.requiresPin) {
           setPinVerified(false);
@@ -162,7 +170,8 @@ function App() {
       } else if (err.code === 'ECONNABORTED') {
         setError('Request timed out. Please try again.');
       } else {
-        setError('Failed to connect to the server. Please ensure the backend is running.');
+        const networkMessage = err?.message ? ` (${err.message})` : '';
+        setError(`Failed to connect to the server${networkMessage}. Please verify API URL/CORS/HTTPS settings.`);
       }
     } finally {
       setLoading(false);
