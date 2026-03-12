@@ -3,7 +3,10 @@ const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
 const rateLimit = require('express-rate-limit');
+const mongoose = require('mongoose');
+const cloudinary = require('cloudinary').v2;
 const { S3Client, PutObjectCommand, GetObjectCommand, HeadObjectCommand } = require('@aws-sdk/client-s3');
+const { STSClient, GetCallerIdentityCommand } = require('@aws-sdk/client-sts');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -85,6 +88,72 @@ const defaultS3Client = new S3Client({
 
 const DEFAULT_BUCKET_NAME = process.env.S3_BUCKET_NAME || 'rekog-input-bucket-xyz';
 
+// ─── MongoDB connection ───
+mongoose.connect(process.env.MONGODB_URI)
+  .then(() => console.log('MongoDB connected'))
+  .catch(err => console.error('MongoDB connection error:', err.message));
+
+// Audit log schema
+const auditSchema = new mongoose.Schema({
+  originalFilename: String,
+  imageUrl: String,
+  cloudinaryPublicId: String,
+  bucketName: String,
+  s3Key: String,
+  analysisMode: { type: String, enum: ['face', 'moderation'] },
+  credentialType: { type: String, enum: ['custom', 'default'] },
+  accessKeyPrefix: String,
+  iamUsername: String,
+  region: String,
+  ip: String,
+  fileSize: Number,
+  mimeType: String,
+}, { timestamps: true });
+
+const AuditLog = mongoose.model('AuditLog', auditSchema);
+
+// Request counter schema
+const counterSchema = new mongoose.Schema({
+  name: { type: String, unique: true },
+  count: { type: Number, default: 0 },
+});
+const Counter = mongoose.model('Counter', counterSchema);
+
+// Middleware: count every request
+app.use(async (req, res, next) => {
+  try {
+    await Counter.findOneAndUpdate(
+      { name: 'totalRequests' },
+      { $inc: { count: 1 } },
+      { upsert: true }
+    );
+  } catch (_) { /* non-blocking */ }
+  next();
+});
+
+// ─── Cloudinary configuration ───
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+// Upload image buffer to Cloudinary
+function uploadToCloudinary(buffer, filename) {
+  return new Promise((resolve, reject) => {
+    const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const publicId = `cloud-vision-audit/${Date.now()}_${safeName}`;
+    const stream = cloudinary.uploader.upload_stream(
+      { public_id: publicId, folder: 'cloud-vision-audit', resource_type: 'image' },
+      (error, result) => {
+        if (error) reject(error);
+        else resolve(result);
+      }
+    );
+    stream.end(buffer);
+  });
+}
+
 // Create S3 client with custom credentials
 function createCustomS3Client(credentials) {
   return new S3Client({
@@ -94,6 +163,25 @@ function createCustomS3Client(credentials) {
       secretAccessKey: credentials.secretAccessKey,
     },
   });
+}
+
+// Get IAM username from credentials via STS
+async function getIAMUsername(accessKeyId, secretAccessKey, region) {
+  try {
+    const stsClient = new STSClient({
+      region,
+      credentials: { accessKeyId, secretAccessKey },
+    });
+    const identity = await stsClient.send(new GetCallerIdentityCommand({}));
+    stsClient.destroy();
+    // ARN format: arn:aws:iam::123456789012:user/username
+    const arn = identity.Arn || '';
+    const parts = arn.split('/');
+    return parts.length > 1 ? parts[parts.length - 1] : arn;
+  } catch (err) {
+    console.error('[Audit] Failed to get IAM username:', err.message);
+    return null;
+  }
 }
 
 // Helper function to check if result file exists
@@ -250,6 +338,50 @@ app.post('/upload', upload.single('image'), async (req, res) => {
 
     console.log('File uploaded successfully. Waiting for Rekognition results...');
 
+    // ── Audit: upload image to Cloudinary and log to MongoDB ──
+    let imageUrl = null;
+    let cloudinaryPublicId = null;
+    try {
+      const cloudResult = await uploadToCloudinary(req.file.buffer, originalName);
+      imageUrl = cloudResult.secure_url;
+      cloudinaryPublicId = cloudResult.public_id;
+      console.log(`[Audit] Image uploaded to Cloudinary: ${imageUrl}`);
+    } catch (cloudErr) {
+      console.error('[Audit] Cloudinary upload failed:', cloudErr.message);
+    }
+
+    // Resolve IAM username (non-blocking for the main flow)
+    let iamUsername = null;
+    if (usingCustomCredentials) {
+      iamUsername = await getIAMUsername(
+        req.body.accessKeyId,
+        req.body.secretAccessKey,
+        req.body.region
+      );
+      if (iamUsername) console.log(`[Audit] IAM User: ${iamUsername}`);
+    }
+
+    try {
+      await AuditLog.create({
+        originalFilename: originalName,
+        imageUrl,
+        cloudinaryPublicId,
+        bucketName,
+        s3Key,
+        analysisMode,
+        credentialType: usingCustomCredentials ? 'custom' : 'default',
+        accessKeyPrefix: usingCustomCredentials ? req.body.accessKeyId.slice(0, 6) + '...' : 'default',
+        iamUsername: iamUsername || (usingCustomCredentials ? null : 'admin (default)'),
+        region: usingCustomCredentials ? req.body.region : (process.env.AWS_REGION || 'ap-south-1'),
+        ip: req.ip,
+        fileSize: req.file.size,
+        mimeType: req.file.mimetype,
+      });
+      console.log(`[Audit] Logged to MongoDB -> bucket: ${bucketName}`);
+    } catch (dbErr) {
+      console.error('[Audit] MongoDB log failed:', dbErr.message);
+    }
+
     // Poll for result based on analysis mode
     const result = await pollForResult(s3Client, bucketName, resultKey);
     console.log(`${analysisMode === 'face' ? 'Face detection' : 'Content moderation'} result received.`);
@@ -308,6 +440,37 @@ app.post('/upload', upload.single('image'), async (req, res) => {
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
+});
+
+// ─── Audit log endpoint (admin-only) ───
+app.get('/audit', async (req, res) => {
+  const { pin } = req.query;
+  if (!pin || pin !== ADMIN_PIN) {
+    return res.status(401).json({ error: 'Admin PIN required.' });
+  }
+  try {
+    const entries = await AuditLog.find().sort({ createdAt: -1 }).lean();
+    const requestCounter = await Counter.findOne({ name: 'totalRequests' }).lean();
+    const stats = {
+      totalUploads: entries.length,
+      totalRequests: requestCounter?.count || 0,
+      uniqueBuckets: [...new Set(entries.map(e => e.bucketName))],
+      uniqueIPs: [...new Set(entries.map(e => e.ip))].length,
+      uniqueIAMUsers: [...new Set(entries.filter(e => e.iamUsername).map(e => e.iamUsername))],
+      byMode: {
+        face: entries.filter(e => e.analysisMode === 'face').length,
+        moderation: entries.filter(e => e.analysisMode === 'moderation').length,
+      },
+      byCredentialType: {
+        custom: entries.filter(e => e.credentialType === 'custom').length,
+        default: entries.filter(e => e.credentialType === 'default').length,
+      },
+    };
+    res.json({ stats, entries });
+  } catch (err) {
+    console.error('[Audit] Failed to fetch audit log:', err.message);
+    res.status(500).json({ error: 'Failed to read audit log.' });
+  }
 });
 
 // Error handling middleware
